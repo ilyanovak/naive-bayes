@@ -2,23 +2,34 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-
 class NaiveBayesGauss:
 
     def __init__(self):
         self.predict_prob = None
 
     def _get_data(self):
-        return self.data
+        if not hasattr(self, 'data'):
+            return
+        else:
+            return self.data
 
     def _get_labels(self):
-        return self.labels
+        if not hasattr(self, 'labels'):
+            return
+        else:
+            return self.labels
 
     def _get_describe_attributes(self):
-        return self.describe_attributes
+        if not hasattr(self, 'describe_attributes'):
+            return
+        else:
+            return self.describe_attributes
 
     def _get_describe_labels(self):
-        return self.describe_labels
+        if not hasattr(self, 'describe_labels'):
+            return
+        else:
+            return self.describe_labels
 
     def _get_prior(self, label):
         '''
@@ -69,20 +80,18 @@ class NaiveBayesGauss:
 
     def fit(self, X, Y):
         '''
-        Fits training data on target data using a Naive Bayes algorithm
+        Fits observations data on target data using a Naive Bayes algorithm
         Arguments:
-            X: Training data with array-like shape with n samples and m attributes
-            Y: Target data with array-like shape with n samples
+            X: Training data of attributes with array-like shape with n samples and m attributes
+            Y: Training data of labels with 1-D array-like shape with n samples
         '''
 
         # Verify X and Y are Series, DataFrame or Numpy Array objects
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(
-                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
-            raise ValueError(
-                f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
 
         # Concatinate and convert X and Y into dataframe.
         # Last column is target values. The rest are training values.
@@ -109,12 +118,10 @@ class NaiveBayesGauss:
 
         # Verify X is a Series, DataFrame or Numpy Array object
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(
-                f'X must be a Series, DataFrame or Numpy Array object but X is {type(X)}')
+            raise TypeError(f'X must be a Series, DataFrame or Numpy Array object but X is {type(X)}')
         # Verify X and training data have identical number of rows
         elif X.shape != (model._get_data().shape[1] - 1, 1) and X.shape != (model._get_data().shape[1] - 1, ):
-            raise ValueError(
-                f'X must have number of rows identical to number of columns of training data but X has shape {X.shape} and training data has shape {self._get_data().iloc[:,0:-1].shape}')
+            raise ValueError(f'X must have number of rows identical to number of columns of training data but X has shape {X.shape} and training data has shape {self._get_data().iloc[:,0:-1].shape}')
 
         predict_prob = {}
         max_label = 0
@@ -134,27 +141,52 @@ class NaiveBayesGauss:
 
         return max_label
 
-    def plot(self, X, Y, attributes=[0, 1], h=0.1):
+    def predict_accuracy(self, X, Y):
         '''
-        Plots heat map of naive bayes probabilities for data with two attributes:
-            X: Training data with array-like shape with n samples and m attributes
-            Y: Target data with array-like shape with n samples
+        Uses a pre-fit model to predict a label for each observation in X verifies it against its correct label in Y
+            X: Target data of attributes with array-like shape with n samples and m attributes
+            Y: Target data of labels with 1-D array-like shape with n samples
+        Returns total predictions accuracy
+        '''
+
+        # Verify model has been previously fit
+        if not hasattr(self, 'predict_prob'):
+            raise AttributeError('Model has not been fit yet')
+        # Verify X and Y are Series, DataFrame or Numpy Array objects
+        elif not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
+            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+        # Verify X and Y have identical number of rows
+        elif X.shape[0] != Y.shape[0]:
+            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+
+        predictions = []
+        sum = 0
+        for i in range(len(X)):
+            if model.predict(X.iloc[i]) == Y.iloc[i]:
+                sum += 1
+            predictions.append(self.predict(X.iloc[i]))
+
+        # return f"The fitted model's prediction accuracy is {str(sum/len(X)).replace('.', '')}%"
+        return f"The fitted model's prediction accuracy is {sum/len(X)}"
+
+    def plot_heatmap(self, X, Y, attributes=[0,1], h=0.1):
+        '''
+        Plots heatmap of naive bayes probabilities for data with two attributes:
+            X: Training data of attributes with array-like shape with n samples and m attributes
+            Y: Training data of labels with 1-D array-like shape with n samples
             attributes: A list of length 2 with integer values that referince which columns in training data to include in analysis
             h: # Step size in the mesh
         '''
 
         # Verify X and Y are Series, DataFrame or Numpy Array objects
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(
-                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
-            raise ValueError(
-                f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
         # Verify attribute is a list with correct length and valur types
         elif type(attributes) != list or len(attributes) != 2 or not all(isinstance(n, int) for n in attributes):
-            raise TypeError(
-                f'Attributes must be a list of length 2 and should only contain integer values')
+            raise TypeError(f'Attributes must be a list of length 2 and should only contain integer values')
         # Verify h is of float type
         elif type(h) == 'float64':
             raise TypeError(f'h should be float data type but it is {type(h)}')
@@ -162,10 +194,8 @@ class NaiveBayesGauss:
         print("This make time some time.  Decrease size of X and Y or h arguments to increase processing time.")
 
         # Minimum and maximum values of x and y coordinates in mesh grid
-        x_min, x_max = X.iloc[:, attributes[0]].min(
-        ) - 1, X.iloc[:, attributes[0]].max() + 1
-        y_min, y_max = X.iloc[:, attributes[1]].min(
-        ) - 1, X.iloc[:, attributes[1]].max() + 1
+        x_min, x_max = X.iloc[:, attributes[0]].min() - 1, X.iloc[:, attributes[0]].max() + 1
+        y_min, y_max = X.iloc[:, attributes[1]].min() - 1, X.iloc[:, attributes[1]].max() + 1
 
         # Range of values for x and y coordinates in mesh grid
         x_range = np.arange(x_min, x_max, h)
@@ -174,6 +204,8 @@ class NaiveBayesGauss:
         # Set of x and y coordinates in mesh grid
         x_coord, y_coord = np.meshgrid(x_range, y_range)
         coords = np.c_[x_coord.ravel(), y_coord.ravel()]
+
+        print('len(x_coord) x len(y_coord)', len(x_coord), len(y_coord))
 
         y_ = np.arange(y_min, y_max, h)
 
@@ -185,7 +217,8 @@ class NaiveBayesGauss:
         for coord in coords:
             prediction = self.predict(coord)
             predictions.append(self.predict_prob[prediction])
-            print(count)
+            if count % 1000 == 0:
+                print(f'Calculated {count}/{len(coords)} predictions...')
             count += 1
         Z = np.array(predictions).reshape(x_coord.shape)
 
@@ -193,8 +226,7 @@ class NaiveBayesGauss:
         def enable_plotly_in_cell():
             import IPython
             from plotly.offline import init_notebook_mode
-            display(IPython.core.display.HTML(
-                '''<script src="/static/components/requirejs/require.js"></script>'''))
+            display(IPython.core.display.HTML('''<script src="/static/components/requirejs/require.js"></script>'''))
             init_notebook_mode(connected=False)
         enable_plotly_in_cell()
 
@@ -211,13 +243,12 @@ class NaiveBayesGauss:
                             marker=dict(size=10,
                                         color=Y_train,
                                         colorscale='Jet',
-                                        reversescale=True,
+                                        reversescale = True,
                                         line=dict(color='black', width=1))
-                            )
-        layout = go.Layout(autosize=True,
-                           title='Naive Bayes Gaussian Surface Probability Map',
-                           hovermode='closest',
-                           showlegend=False,
+                        )
+        layout = go.Layout(title= 'Naive Bayes Gaussian Surface Probability Map',
+                           hovermode= 'closest',
+                           showlegend= False,
                            width=800, height=800)
 
         data = [trace1, trace2]
