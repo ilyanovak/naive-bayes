@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+
 class NaiveBayesGauss:
 
     def __init__(self):
@@ -75,6 +76,16 @@ class NaiveBayesGauss:
 
         return posterior
 
+    def _get_normalizer(self, X):
+        '''
+        '''
+
+        normalizer = 0
+        for label in self._get_labels():
+            normalizer += self._get_posterior(label, X)
+
+        return normalizer
+
     def predict_prob(self):
         return self.predict_prob
 
@@ -88,10 +99,12 @@ class NaiveBayesGauss:
 
         # Verify X and Y are Series, DataFrame or Numpy Array objects
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+            raise TypeError(
+                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
-            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+            raise ValueError(
+                f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
 
         # Concatinate and convert X and Y into dataframe.
         # Last column is target values. The rest are training values.
@@ -110,7 +123,7 @@ class NaiveBayesGauss:
         self.describe_labels = self._get_data(
         )[self._get_data().columns[-1]].value_counts(normalize=True)
 
-    def predict(self, X):
+    def predict(self, X, use_normalizer=False):
         '''
         Predicts class based on specified attributes
             X: 1-D list of attribute values used to predict class
@@ -118,11 +131,15 @@ class NaiveBayesGauss:
 
         # Verify X is a Series, DataFrame or Numpy Array object
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(f'X must be a Series, DataFrame or Numpy Array object but X is {type(X)}')
+            raise TypeError(
+                f'X must be a Series, DataFrame or Numpy Array object but X is {type(X)}')
         # Verify X and training data have identical number of rows
         elif X.shape != (model._get_data().shape[1] - 1, 1) and X.shape != (model._get_data().shape[1] - 1, ):
-            raise ValueError(f'X must have number of rows identical to number of columns of training data but X has shape {X.shape} and training data has shape {self._get_data().iloc[:,0:-1].shape}')
+            raise ValueError(
+                f'X must have number of rows identical to number of columns of training data but X has shape {X.shape} and training data has shape {self._get_data().iloc[:,0:-1].shape}')
 
+        if use_normalizer == True:
+            normalizer = self._get_normalizer(X)
         predict_prob = {}
         max_label = 0
         max_posterior = 0
@@ -130,7 +147,11 @@ class NaiveBayesGauss:
         # Iterate through each label in fitted data
         for label in self._get_labels():
             # Calculate label's posterior and assign probability value to predict_prob with label as key
-            predict_prob[label] = self._get_posterior(label, X)
+            if use_normalizer == True:
+                predict_prob[label] = self._get_posterior(
+                    label, X) / normalizer
+            else:
+                predict_prob[label] = self._get_posterior(label, X)
             # Select highest posterior
             if predict_prob[label] > max_posterior:
                 max_posterior = predict_prob[label]
@@ -154,10 +175,12 @@ class NaiveBayesGauss:
             raise AttributeError('Model has not been fit yet')
         # Verify X and Y are Series, DataFrame or Numpy Array objects
         elif not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+            raise TypeError(
+                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
-            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+            raise ValueError(
+                f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
 
         predictions = []
         sum = 0
@@ -166,10 +189,9 @@ class NaiveBayesGauss:
                 sum += 1
             predictions.append(self.predict(X.iloc[i]))
 
-        # return f"The fitted model's prediction accuracy is {str(sum/len(X)).replace('.', '')}%"
         return f"The fitted model's prediction accuracy is {sum/len(X)}"
 
-    def plot_heatmap(self, X, Y, attributes=[0,1], h=0.1):
+    def plot_heatmap(self, X, Y, attributes=[0, 1], h=0.1):
         '''
         Plots heatmap of naive bayes probabilities for data with two attributes:
             X: Training data of attributes with array-like shape with n samples and m attributes
@@ -180,13 +202,16 @@ class NaiveBayesGauss:
 
         # Verify X and Y are Series, DataFrame or Numpy Array objects
         if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
-            raise TypeError(f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+            raise TypeError(
+                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
-            raise ValueError(f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
+            raise ValueError(
+                f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
         # Verify attribute is a list with correct length and valur types
         elif type(attributes) != list or len(attributes) != 2 or not all(isinstance(n, int) for n in attributes):
-            raise TypeError(f'Attributes must be a list of length 2 and should only contain integer values')
+            raise TypeError(
+                f'Attributes must be a list of length 2 and should only contain integer values')
         # Verify h is of float type
         elif type(h) == 'float64':
             raise TypeError(f'h should be float data type but it is {type(h)}')
@@ -194,8 +219,10 @@ class NaiveBayesGauss:
         print("This make time some time.  Decrease size of X and Y or h arguments to increase processing time.")
 
         # Minimum and maximum values of x and y coordinates in mesh grid
-        x_min, x_max = X.iloc[:, attributes[0]].min() - 1, X.iloc[:, attributes[0]].max() + 1
-        y_min, y_max = X.iloc[:, attributes[1]].min() - 1, X.iloc[:, attributes[1]].max() + 1
+        x_min, x_max = X.iloc[:, attributes[0]].min(
+        ) - 1, X.iloc[:, attributes[0]].max() + 1
+        y_min, y_max = X.iloc[:, attributes[1]].min(
+        ) - 1, X.iloc[:, attributes[1]].max() + 1
 
         # Range of values for x and y coordinates in mesh grid
         x_range = np.arange(x_min, x_max, h)
@@ -204,8 +231,6 @@ class NaiveBayesGauss:
         # Set of x and y coordinates in mesh grid
         x_coord, y_coord = np.meshgrid(x_range, y_range)
         coords = np.c_[x_coord.ravel(), y_coord.ravel()]
-
-        print('len(x_coord) x len(y_coord)', len(x_coord), len(y_coord))
 
         y_ = np.arange(y_min, y_max, h)
 
@@ -226,7 +251,8 @@ class NaiveBayesGauss:
         def enable_plotly_in_cell():
             import IPython
             from plotly.offline import init_notebook_mode
-            display(IPython.core.display.HTML('''<script src="/static/components/requirejs/require.js"></script>'''))
+            display(IPython.core.display.HTML(
+                '''<script src="/static/components/requirejs/require.js"></script>'''))
             init_notebook_mode(connected=False)
         enable_plotly_in_cell()
 
@@ -235,21 +261,27 @@ class NaiveBayesGauss:
                             y=y_,
                             z=Z,
                             colorscale='Jet',
-                            showscale=False)
+                            showscale=False,
+                            zsmooth='best',
+                            hoverinfo='skip')
         trace2 = go.Scatter(x=X[attributes[0]],
                             y=X[attributes[1]],
                             mode='markers',
-                            showlegend=False,
+                            hoverinfo="text",
+                            text=Y.values,
                             marker=dict(size=10,
-                                        color=Y_train,
+                                        color=Y.values,
                                         colorscale='Jet',
-                                        reversescale = True,
+                                        reversescale=True,
                                         line=dict(color='black', width=1))
-                        )
-        layout = go.Layout(title= 'Naive Bayes Gaussian Surface Probability Map',
-                           hovermode= 'closest',
-                           showlegend= False,
-                           width=800, height=800)
+                            )
+        layout = go.Layout(title_text='Naive Bayes Gaussian Model Surface Probability Map',
+                           title_x=0.5,
+                           hovermode='closest',
+                           showlegend=False,
+                           width=500, height=500,
+                           xaxis_title=attributes[0],
+                           yaxis_title=attributes[1])
 
         data = [trace1, trace2]
         fig = go.Figure(data=data, layout=layout)
