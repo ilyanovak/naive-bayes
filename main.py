@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.figure_factory as ff
 
 
 class NaiveBayesGauss:
@@ -70,9 +71,13 @@ class NaiveBayesGauss:
         Returns: A posterior estimate of the X values
         '''
 
+        # posterior = self._get_prior(label)
+        # for i in range(len(X)):
+        #     posterior *= self._get_likelihood(label, i, X[i])
+
         posterior = self._get_prior(label)
-        for i in range(len(X)):
-            posterior *= self._get_likelihood(label, i, X[i])
+        for attribute in X.index:
+            posterior *= self._get_likelihood(label, attribute, X[attribute])
 
         return posterior
 
@@ -93,14 +98,14 @@ class NaiveBayesGauss:
         '''
         Fits observations data on target data using a Naive Bayes algorithm
         Arguments:
-            X: Training data of attributes with array-like shape with n samples and m attributes
-            Y: Training data of labels with 1-D array-like shape with n samples
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
         '''
 
-        # Verify X and Y are Series, DataFrame or Numpy Array objects
-        if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
+        # Verify X and Y are a Pandas Series or DataFrame objects
+        if not isinstance(X, (pd.Series, pd.DataFrame)) or not isinstance(Y, (pd.Series, pd.DataFrame)):
             raise TypeError(
-                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+                f'X and Y must be a Pandas Series or DataFrame object but X is {type(X)} but Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
             raise ValueError(
@@ -108,8 +113,7 @@ class NaiveBayesGauss:
 
         # Concatinate and convert X and Y into dataframe.
         # Last column is target values. The rest are training values.
-        self.data = pd.concat(
-            [pd.DataFrame(X), pd.DataFrame(Y)], axis=1, ignore_index=True)
+        self.data = pd.concat([pd.DataFrame(X), pd.DataFrame(Y)], axis=1)
 
         # List of unique labels in Y target data
         self.labels = self._get_data()[self._get_data().columns[-1]].unique()
@@ -125,14 +129,16 @@ class NaiveBayesGauss:
 
     def predict(self, X, use_normalizer=False):
         '''
-        Predicts class based on specified attributes
-            X: 1-D list of attribute values used to predict class
+        Predicts label based on specified attributes
+            X: A 1-D Pandas Series or DataFrame with attribute values used to predict label
+            use_normalizer: If True then include normalization in probability calculation
+        Returns: Predicted label
         '''
 
-        # Verify X is a Series, DataFrame or Numpy Array object
-        if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)):
+        # Verify X is a Pandas Series or DataFrame objects
+        if not isinstance(X, (pd.Series, pd.DataFrame)):
             raise TypeError(
-                f'X must be a Series, DataFrame or Numpy Array object but X is {type(X)}')
+                f'X must be a Pandas Series or DataFrame object but X is {type(X)}')
         # Verify X and training data have identical number of rows
         elif X.shape != (model._get_data().shape[1] - 1, 1) and X.shape != (model._get_data().shape[1] - 1, ):
             raise ValueError(
@@ -162,67 +168,101 @@ class NaiveBayesGauss:
 
         return max_label
 
-    def predict_accuracy(self, X, Y):
+    def predict_accuracy(self, X, Y, use_normalizer=False, confusion_matrix=False):
         '''
         Uses a pre-fit model to predict a label for each observation in X verifies it against its correct label in Y
-            X: Target data of attributes with array-like shape with n samples and m attributes
-            Y: Target data of labels with 1-D array-like shape with n samples
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
+            use_normalizer: If True then include normalization in probability calculation
+            confusion_matrix: If True then also generates a confusion matrix
         Returns total predictions accuracy
         '''
 
         # Verify model has been previously fit
         if not hasattr(self, 'predict_prob'):
-            raise AttributeError('Model has not been fit yet')
-        # Verify X and Y are Series, DataFrame or Numpy Array objects
-        elif not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
+            raise AttributeError('Model has not yet been fit')
+        # Verify X and Y are a Pandas Series or DataFrame objects
+        if not isinstance(X, (pd.Series, pd.DataFrame)) or not isinstance(Y, (pd.Series, pd.DataFrame)):
             raise TypeError(
-                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+                f'X and Y must be a Pandas Series or DataFrame object but X is {type(X)} but Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
             raise ValueError(
                 f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
 
         predictions = []
-        sum = 0
+        hit_rate = 0
+
+        if confusion_matrix == True:
+            values_matrix = pd.DataFrame(
+                index=Y.unique(), columns=Y.unique()).fillna(0)
+
+        # Iterate through X and perform model prediction on each vector of values
         for i in range(len(X)):
-            if model.predict(X.iloc[i]) == Y.iloc[i]:
-                sum += 1
-            predictions.append(self.predict(X.iloc[i]))
+            prediction = self.predict(X.iloc[i], use_normalizer=use_normalizer)
+            actual = Y.iloc[i]
+            if prediction == actual:
+                hit_rate += 1
+            if confusion_matrix == True:
+                values_matrix[actual][prediction] += 1
+            predictions.append(prediction)
 
-        return f"The fitted model's prediction accuracy is {sum/len(X)}"
+        print(f"The fitted model's prediction accuracy is {hit_rate/len(X)}")
 
-    def plot_heatmap(self, X, Y, attributes=[0, 1], h=0.1):
+        if confusion_matrix == True:
+            # Necessary in case function is run in a jupyter notebook
+            def enable_plotly_in_cell():
+                import IPython
+                from plotly.offline import init_notebook_mode
+                display(IPython.core.display.HTML(
+                    '''<script src="/static/components/requirejs/require.js"></script>'''))
+                init_notebook_mode(connected=False)
+            enable_plotly_in_cell()
+
+            fig = ff.create_annotated_heatmap(x=list(Y.unique()),
+                                              y=list(Y.unique()),
+                                              z=values_matrix.values,
+                                              colorscale='Viridis')
+            fig.update_layout(title_text='Naive Bayes Gaussian Model Confusion Matrix',
+                              title_x=0.5,
+                              width=400, height=400)
+            fig.show()
+
+    def plot_heatmap(self, X, Y, attributes, h=0.1):
         '''
         Plots heatmap of naive bayes probabilities for data with two attributes:
-            X: Training data of attributes with array-like shape with n samples and m attributes
-            Y: Training data of labels with 1-D array-like shape with n samples
-            attributes: A list of length 2 with integer values that referince which columns in training data to include in analysis
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
+            attributes: A list of length 2 with whose elements are columns in training data
             h: # Step size in the mesh
         '''
 
-        # Verify X and Y are Series, DataFrame or Numpy Array objects
-        if not isinstance(X, (pd.Series, pd.DataFrame, np.ndarray)) or not isinstance(Y, (pd.Series, pd.DataFrame, np.ndarray)):
+        # Verify X and Y are a Pandas Series or DataFrame objects
+        if not isinstance(X, (pd.Series, pd.DataFrame)) or not isinstance(Y, (pd.Series, pd.DataFrame)):
             raise TypeError(
-                f'X and Y must be Series, DataFrame or Numpy Array object but X is {type(X)} and Y is {type(Y)}')
+                f'X and Y must be a Pandas Series or DataFrame object but X is {type(X)} but Y is {type(Y)}')
         # Verify X and Y have identical number of rows
         elif X.shape[0] != Y.shape[0]:
             raise ValueError(
                 f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
-        # Verify attribute is a list with correct length and valur types
-        elif type(attributes) != list or len(attributes) != 2 or not all(isinstance(n, int) for n in attributes):
+        # Verify attribute is a list with correct length
+        elif type(attributes) != list:
             raise TypeError(
-                f'Attributes must be a list of length 2 and should only contain integer values')
+                f'attributes must be a list but is a {type(attributes)}')
+        elif len(attributes) != 2:
+            raise TypeError(
+                f'attributes must be a list of length 2 but has length {len(attributes)}')
         # Verify h is of float type
         elif type(h) == 'float64':
             raise TypeError(f'h should be float data type but it is {type(h)}')
 
-        print("This make time some time.  Decrease size of X and Y or h arguments to increase processing time.")
+        print("This may time some time. Decrease size of X and Y or h arguments to increase processing time.")
 
         # Minimum and maximum values of x and y coordinates in mesh grid
-        x_min, x_max = X.iloc[:, attributes[0]].min(
-        ) - 1, X.iloc[:, attributes[0]].max() + 1
-        y_min, y_max = X.iloc[:, attributes[1]].min(
-        ) - 1, X.iloc[:, attributes[1]].max() + 1
+        x_min, x_max = X.loc[:, attributes[0]].min(
+        ) - 1, X.loc[:, attributes[0]].max() + 1
+        y_min, y_max = X.loc[:, attributes[1]].min(
+        ) - 1, X.loc[:, attributes[1]].max() + 1
 
         # Range of values for x and y coordinates in mesh grid
         x_range = np.arange(x_min, x_max, h)
@@ -239,7 +279,7 @@ class NaiveBayesGauss:
         # Generate probability predictions for all coordinates in mesh grid
         predictions = []
         count = 0
-        for coord in coords:
+        for index, coord in pd.DataFrame(coords, columns=attributes).iterrows():
             prediction = self.predict(coord)
             predictions.append(self.predict_prob[prediction])
             if count % 1000 == 0:
@@ -270,7 +310,7 @@ class NaiveBayesGauss:
                             hoverinfo="text",
                             text=Y.values,
                             marker=dict(size=10,
-                                        color=Y.values,
+                                        color=pd.factorize(Y)[0],
                                         colorscale='Jet',
                                         reversescale=True,
                                         line=dict(color='black', width=1))
@@ -279,7 +319,7 @@ class NaiveBayesGauss:
                            title_x=0.5,
                            hovermode='closest',
                            showlegend=False,
-                           width=500, height=500,
+                           width=600, height=600,
                            xaxis_title=attributes[0],
                            yaxis_title=attributes[1])
 
