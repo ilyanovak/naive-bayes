@@ -10,34 +10,46 @@ class NaiveBayesGauss:
         self.predict_prob = None
 
     def _get_data(self):
-        return self.data
+        if not hasattr(self, 'data'):
+            return
+        else:
+            return self.data
 
     def _get_labels(self):
-        return self.labels
+        if not hasattr(self, 'labels'):
+            return
+        else:
+            return self.labels
 
     def _get_describe_attributes(self):
-        return self.describe_attributes
+        if not hasattr(self, 'describe_attributes'):
+            return
+        else:
+            return self.describe_attributes
 
     def _get_describe_labels(self):
-        return self.describe_labels
+        if not hasattr(self, 'describe_labels'):
+            return
+        else:
+            return self.describe_labels
 
     def _get_prior(self, label):
         '''
-        Returns the label's prior (probability)
+        Calculates prior (probability) of specified label
         Arguments:
-            label: Label whose prior to calculate
-        Returns the label's prior
+            label: Index value of label whose prior probability to calculate
+        Returns prior probability of specified label
         '''
         return self._get_describe_labels()[label]
 
     def _get_likelihood(self, label, attribute, x):
         '''
-        Calculates the attribute's likelihood (probability)
+        Calculate likelihood (probability) of attribute
         Arguments:
-            label: Label whose attribute's gaussian distribution to calculate
-            attribute: Attribute whose gaussian distribution to calculate
+            label: Index value of label whose attribute's gaussian distribution to calculate
+            attribute: Index value of attribute whose gaussian distribution to calculate
             x: Real value whose likelihood to estimate
-        Returns: A likelihood estimate for x
+        Returns: A likelihood estimate of the value using a gaussian distribution
         '''
 
         mean = self._get_describe_attributes()[attribute]['mean'][label]
@@ -52,12 +64,16 @@ class NaiveBayesGauss:
 
     def _get_posterior(self, label, X):
         '''
-        Calculates the label's posterior (probability) using values in X
+        Calculate posterior (probability) of label for X values
         Arguments:
-            label: Label whose posterior to calculate
-            X: List of values whose posterior to calculate
-        Returns: A posterior calculation of the values in X
+            label: Index value of label whose posterior to calculate
+            X: List of real values whose posterior to estimate
+        Returns: A posterior estimate of the X values
         '''
+
+        # posterior = self._get_prior(label)
+        # for i in range(len(X)):
+        #     posterior *= self._get_likelihood(label, i, X[i])
 
         posterior = self._get_prior(label)
         for attribute in X.index:
@@ -67,9 +83,6 @@ class NaiveBayesGauss:
 
     def _get_normalizer(self, X):
         '''
-        Calculates normalizer (probability):
-            X: List of values whose normalizer to calculate
-        Returns: A normalizer calculation of the values in X
         '''
 
         normalizer = 0
@@ -83,10 +96,10 @@ class NaiveBayesGauss:
 
     def fit(self, X, Y):
         '''
-        Fits observations in training data
+        Fits observations data on target data using a Naive Bayes algorithm
         Arguments:
-            X: Pandas DataFrame/Series with attributes. It has n samples and m attributes
-            Y: Pandas DataFrame/Series with  labels. It has n samples
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
         '''
 
         # Verify X and Y are a Pandas Series or DataFrame objects
@@ -98,8 +111,8 @@ class NaiveBayesGauss:
             raise ValueError(
                 f'X and Y must have identical number of rows but X has shape {X.shape} and Y has shape {Y.shape}')
 
-        # Concatinate and convert X and Y into dataframe
-        # Last column is labels. The other columns are attributes
+        # Concatinate and convert X and Y into dataframe.
+        # Last column is target values. The rest are training values.
         self.data = pd.concat([pd.DataFrame(X), pd.DataFrame(Y)], axis=1)
 
         # List of unique labels in Y target data
@@ -116,13 +129,13 @@ class NaiveBayesGauss:
 
     def predict(self, X, use_normalizer=False):
         '''
-        Predicts label based on attributes
-            X: A 1-D Pandas Series/DataFrame with attribute values used to predict label
+        Predicts label based on specified attributes
+            X: A 1-D Pandas Series or DataFrame with attribute values used to predict label
             use_normalizer: If True then include normalization in probability calculation
-        Returns: The predicted label
+        Returns: Predicted label
         '''
 
-        # Verify X is a Pandas Series or DataFrame object
+        # Verify X is a Pandas Series or DataFrame objects
         if not isinstance(X, (pd.Series, pd.DataFrame)):
             raise TypeError(
                 f'X must be a Pandas Series or DataFrame object but X is {type(X)}')
@@ -133,7 +146,6 @@ class NaiveBayesGauss:
 
         if use_normalizer == True:
             normalizer = self._get_normalizer(X)
-
         predict_prob = {}
         max_label = 0
         max_posterior = 0
@@ -158,11 +170,11 @@ class NaiveBayesGauss:
 
     def predict_accuracy(self, X, Y, use_normalizer=False, confusion_matrix=False):
         '''
-        Uses a pre-fit model to predict a label for each observation in X and verifies it against its correct label in Y
-            X: Pandas DataFrame/Series with training data of attributes. It has n samples and m attributes
-            Y: Pandas DataFrame/Series with training data of labels. It has n samples
-            use_normalizer: If True then includes normalization in probability calculation
-            confusion_matrix: If True then generates a confusion matrix
+        Uses a pre-fit model to predict a label for each observation in X verifies it against its correct label in Y
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
+            use_normalizer: If True then include normalization in probability calculation
+            confusion_matrix: If True then also generates a confusion matrix
         Returns total predictions accuracy
         '''
 
@@ -182,12 +194,10 @@ class NaiveBayesGauss:
         hit_rate = 0
 
         if confusion_matrix == True:
-            # Matrix of hit rates to be used in confusion matrix
-            # All values are preset to 0
-            # Index and columns are both set to unique labels in Y
-            values_matrix = pd.DataFrame(index=Y.unique(), columns=Y.unique()).fillna(0)
+            values_matrix = pd.DataFrame(
+                index=Y.unique(), columns=Y.unique()).fillna(0)
 
-        # Iterate through X and perform model prediction on each set of values
+        # Iterate through X and perform model prediction on each vector of values
         for i in range(len(X)):
             prediction = self.predict(X.iloc[i], use_normalizer=use_normalizer)
             actual = Y.iloc[i]
@@ -218,13 +228,14 @@ class NaiveBayesGauss:
                               width=400, height=400)
             fig.show()
 
-    def plot_heatmap(self, X, Y, attributes, h=0.1):
+    def plot_heatmap(self, X, Y, attributes, predict_label, h=0.1):
         '''
         Plots heatmap of naive bayes probabilities for data with two attributes:
-            X: Pandas DataFrame/Series with training data of attributes. It has n samples and m attributes
-            Y: Pandas DataFrame/Series with training data of labels. It has n samples
-            attributes: A list of length 2 with whose elements are columns to use in X
-            h: # Step size to use when generating mesh grid used for heatmap
+            X: Pandas DataFrame or Series with training data of attributes. It has n samples and m attributes
+            Y: Pandas DataFrame or Series with training data of labels. It has n samples
+            attributes: A list of length 2 with whose elements are columns in training data
+            predict_label: Label whose prediction probability to display in heatmap
+            h: # Step size in the mesh
         '''
 
         # Verify X and Y are a Pandas Series or DataFrame objects
@@ -270,8 +281,10 @@ class NaiveBayesGauss:
         predictions = []
         count = 0
         for index, coord in pd.DataFrame(coords, columns=attributes).iterrows():
-            prediction = self.predict(coord)
-            predictions.append(self.predict_prob[prediction])
+            # prediction = self.predict(coord)
+            # predictions.append(self.predict_prob[prediction])
+            self.predict(coord)
+            predictions.append(self.predict_prob[predict_label])
             if count % 1000 == 0:
                 print(f'Calculated {count}/{len(coords)} predictions...')
             count += 1
@@ -305,11 +318,11 @@ class NaiveBayesGauss:
                                         reversescale=True,
                                         line=dict(color='black', width=1))
                             )
-        layout = go.Layout(title_text='Naive Bayes Gaussian Model Surface Probability Map',
+        layout = go.Layout(title_text=f'{predict_label} surface probability',
                            title_x=0.5,
                            hovermode='closest',
                            showlegend=False,
-                           width=600, height=600,
+                           width=500, height=500,
                            xaxis_title=attributes[0],
                            yaxis_title=attributes[1])
 
